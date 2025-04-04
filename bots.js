@@ -173,110 +173,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // Structured prompt for LLM
-  function createPrompt(userQuestion) {
-    return `You are a helpful AI assistant specifically trained to answer questions about the following resume information for ${
-      RESUME_DATA.name
-    }. 
-  Only answer questions related to this resume information. If the question is unrelated to this person's professional experience, education, skills, certifications, projects, or achievements, politely redirect the conversation back to the resume.
-  
-  Here is the complete resume information:
-  
-  NAME: ${RESUME_DATA.name}
-  TITLE: ${RESUME_DATA.title}
-  SUMMARY: ${RESUME_DATA.summary}
-  CONTACT: LinkedIn: ${
-    RESUME_DATA.contact.linkedin
-  } | Email: ${RESUME_DATA.contact.email} | Phone: ${RESUME_DATA.contact.phone}
-  
-  EXPERIENCE:
-  ${RESUME_DATA.experience
-    .map(
-      (exp) => `- ${exp.title} at ${exp.company} (${exp.period})
-  ${exp.responsibilities.map((r) => `  * ${r}`).join("\n")}`
-    )
-    .join("\n")}
-  
-  EDUCATION:
-  ${RESUME_DATA.education
-    .map(
-      (edu) => `- ${edu.degree} from ${edu.institution} (${edu.period})
-    * ${edu.details}`
-    )
-    .join("\n")}
-  
-  SKILLS:
-  - Programming: ${RESUME_DATA.skills.programming.join(", ")}
-  - Web Technologies: ${RESUME_DATA.skills.webTechnologies.join(", ")}
-  - Data Analytics: ${RESUME_DATA.skills.dataAnalytics.join(", ")}
-  - DevOps: ${RESUME_DATA.skills.devops.join(", ")}
-  
-  CERTIFICATIONS:
-  ${RESUME_DATA.certifications.map((cert) => `- ${cert}`).join("\n")}
-  
-  PROJECTS:
-  ${RESUME_DATA.projects
-    .map(
-      (proj) => `- ${proj.name}: ${proj.description}
-    * Technologies: ${proj.technologies.join(", ")}`
-    )
-    .join("\n")}
-  
-  POSITIONS OF RESPONSIBILITY:
-  ${RESUME_DATA.positions
-    .map(
-      (pos) => `- ${pos.role}, ${pos.organization} (${pos.period})
-  ${pos.details.map((d) => `  * ${d}`).join("\n")}`
-    )
-    .join("\n")}
-  
-  ACHIEVEMENTS:
-  ${RESUME_DATA.achievements
-    .map((achievement) => `- ${achievement}`)
-    .join("\n")}
-  
-  USER QUESTION: ${userQuestion}
-  
-  Provide a concise and helpful answer based only on the information above. Keep your answer under 3 sentences unless more detail is specifically required.`;
-  }
-
-  async function callLLMApi(userQuestion) {
-    const prompt = createPrompt(userQuestion);
-
-    try {
-      let response;
-      response = await fetch(API_CONFIG.GROQ_ENDPOINT, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${API_CONFIG.GROQ_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "llama3-8b-8192",
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a helpful assistant that answers questions about a specific resume.",
-            },
-            {
-              role: "user",
-              content: prompt,
-            },
-          ],
-          temperature: 0.3,
-          max_tokens: 300,
-        }),
-      });
-
-      const data = await response.json();
-      return data.choices[0].message.content;
-    } catch (error) {
-      console.error("Error calling LLM API:", error);
-      return "I'm having trouble connecting to my knowledge base. Please try again later.";
-    }
-  }
-
   // Function to handle user input
   async function handleUserInput() {
     const message = userInput.value.trim();
@@ -287,10 +183,31 @@ document.addEventListener("DOMContentLoaded", function () {
       showLoadingIndicator();
 
       try {
-        // Call the LLM API
-        const response = await callLLMApi(message);
+        // Call the Netlify function instead of directly calling GROQ
+        const response = await fetch("/.netlify/functions/chat-bot", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: message,
+            resumeData: RESUME_DATA,
+          }),
+        });
+
+        const data = await response.json();
+
         removeLoadingIndicator();
-        addMessage(response, false);
+
+        if (data.error) {
+          addMessage(
+            "I'm having trouble processing your request. Please try again.",
+            false
+          );
+          console.error("Error:", data.error);
+        } else {
+          addMessage(data.message, false);
+        }
       } catch (error) {
         removeLoadingIndicator();
         addMessage(

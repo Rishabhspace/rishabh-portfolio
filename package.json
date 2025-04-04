@@ -1,0 +1,8 @@
+{
+    "name": "rishabh-portfolio",
+    "version": "1.0.1",
+    "description": "Portfolio website with chatbot",
+    "dependencies": {
+      "node-fetch": "^2.6.7"
+    }
+  }
